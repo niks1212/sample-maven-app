@@ -2,14 +2,13 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "nikhil1112/sample-maven-app"
+        DOCKER_IMAGE = "nikhil1112/sample-app:latest"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Explicitly checkout the main branch
-                git branch: 'main', url: 'https://github.com/niks1212/sample-maven-app.git'
+                checkout scm
             }
         }
 
@@ -21,24 +20,43 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE .'
+                script {
+                    docker.build(DOCKER_IMAGE)
+                }
             }
         }
 
         stage('Push to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    sh 'echo $PASSWORD | docker login -u $USERNAME --password-stdin'
-                    sh 'docker push $DOCKER_IMAGE'
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
+                        docker.image(DOCKER_IMAGE).push()
+                    }
                 }
             }
         }
 
         stage('Run Container') {
             steps {
-                sh 'docker rm -f sample-app || true'
-                sh 'docker run -d --name sample-app -p 8081:8080 $DOCKER_IMAGE'
+                script {
+                    // Stop and remove old container if exists
+                    sh 'docker rm -f sample-app || true'
+                    // Run new container
+                    sh "docker run -d -p 9090:8080 --name sample-app ${DOCKER_IMAGE}"
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline completed.'
+        }
+        success {
+            echo 'Build and deployment successful!'
+        }
+        failure {
+            echo 'Build or deployment failed.'
         }
     }
 }
