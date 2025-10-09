@@ -1,4 +1,4 @@
-# Stage 1: Build the Maven app
+# new dockerfile
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY . .
